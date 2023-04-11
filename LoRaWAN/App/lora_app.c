@@ -1,4 +1,3 @@
-/* USER CODE BEGIN Header */
 /**
   ******************************************************************************
   * @file    lora_app.c
@@ -7,7 +6,7 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2022 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under Ultimate Liberty license
@@ -17,7 +16,6 @@
   *
   ******************************************************************************
   */
-/* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
 #include "platform.h"
@@ -33,18 +31,18 @@
 #include "lora_info.h"
 #include "LmHandler.h"
 #include "stm32_lpm.h"
+#include "adc_if.h"
 #include "sys_conf.h"
 #include "CayenneLpp.h"
 #include "sys_sensors.h"
 
 /* USER CODE BEGIN Includes */
-#include "si7021.h"
 
 /* USER CODE END Includes */
 
 /* External variables ---------------------------------------------------------*/
 /* USER CODE BEGIN EV */
-extern I2C_HandleTypeDef hi2c2;
+
 /* USER CODE END EV */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,11 +52,11 @@ extern I2C_HandleTypeDef hi2c2;
 typedef enum TxEventType_e
 {
   /**
-    * @brief Appdata Transmission issue based on timer every TxDutyCycleTime
+    * @brief AppdataTransmition issue based on timer every TxDutyCycleTime
     */
   TX_ON_TIMER,
   /**
-    * @brief Appdata Transmission external event plugged on OnSendEvent( )
+    * @brief AppdataTransmition external event plugged on OnSendEvent( )
     */
   TX_ON_EVENT
   /* USER CODE BEGIN TxEventType_t */
@@ -82,13 +80,16 @@ typedef enum TxEventType_e
 
 /* Private function prototypes -----------------------------------------------*/
 /**
-  * @brief  LoRa End Node send request
+  * @brief  LoRa endNode send request
+  * @param  none
+  * @retval none
   */
 static void SendTxData(void);
 
 /**
   * @brief  TX timer callback function
-  * @param  context ptr of timer context
+  * @param  timer context
+  * @retval none
   */
 static void OnTxTimerEvent(void *context);
 
@@ -115,20 +116,23 @@ static void OnJoinTimerLedEvent(void *context);
 
 /**
   * @brief  join event callback function
-  * @param  joinParams status of join
+  * @param  params
+  * @retval none
   */
 static void OnJoinRequest(LmHandlerJoinParams_t *joinParams);
 
 /**
   * @brief  tx event callback function
-  * @param  params status of last Tx
+  * @param  params
+  * @retval none
   */
 static void OnTxData(LmHandlerTxParams_t *params);
 
 /**
-  * @brief callback when LoRa application has received a frame
-  * @param appData data received in the last Rx
-  * @param params status of last Rx
+  * @brief callback when LoRa endNode has received a frame
+  * @param appData
+  * @param params
+  * @retval None
   */
 static void OnRxData(LmHandlerAppData_t *appData, LmHandlerRxParams_t *params);
 
@@ -162,8 +166,6 @@ static LmHandlerCallbacks_t LmHandlerCallbacks =
 {
   .GetBatteryLevel =           GetBatteryLevel,
   .GetTemperature =            GetTemperatureLevel,
-  .GetUniqueId =               GetUniqueId,
-  .GetDevAddr =                GetDevAddr,
   .OnMacProcess =              OnMacProcessNotify,
   .OnJoinRequest =             OnJoinRequest,
   .OnTxData =                  OnTxData,
@@ -225,6 +227,21 @@ void LoRaWAN_Init(void)
 {
   /* USER CODE BEGIN LoRaWAN_Init_1 */
 
+  /* USER CODE END LoRaWAN_Init_1 */
+#if defined(USE_BSP_DRIVER)
+  // BSP_LED_Init(LED_BLUE);
+  // BSP_LED_Init(LED_GREEN);
+  // BSP_LED_Init(LED_RED);
+  BSP_PB_Init(BUTTON_SW2, BUTTON_MODE_EXTI);
+#elif defined(MX_BOARD_PSEUDODRIVER)
+  // SYS_LED_Init(// SYS_LED_BLUE);
+  // SYS_LED_Init(// SYS_LED_GREEN);
+  // SYS_LED_Init(// SYS_LED_RED);
+  // SYS_PB_Init(// SYS_BUTTON2, // SYS_BUTTON_MODE_EXTI);
+#else
+#error user to provide its board code or to call his board driver functions
+#endif  /* USE_BSP_DRIVER || MX_BOARD_PSEUDODRIVER */
+
   /* Get LoRa APP version*/
   APP_LOG(TS_OFF, VLEVEL_M, "APP_VERSION:        V%X.%X.%X\r\n",
           (uint8_t)(__LORA_APP_VERSION >> __APP_VERSION_MAIN_SHIFT),
@@ -260,9 +277,7 @@ void LoRaWAN_Init(void)
 
   LmHandlerConfigure(&LmHandlerParams);
 
-  /* USER CODE BEGIN LoRaWAN_Init_2 */
   UTIL_TIMER_Start(&JoinLedTimer);
-  /* USER CODE END LoRaWAN_Init_2 */
 
   LmHandlerJoin(ActivationType);
 
@@ -275,9 +290,12 @@ void LoRaWAN_Init(void)
   }
   else
   {
-    /* USER CODE BEGIN LoRaWAN_Init_3 */
-
-    /* USER CODE END LoRaWAN_Init_3 */
+    /* send every time button is pushed */
+#if defined(USE_BSP_DRIVER)
+    BSP_PB_Init(BUTTON_SW1, BUTTON_MODE_EXTI);
+#elif defined(MX_BOARD_PSEUDODRIVER)
+    // SYS_PB_Init( SYS_BUTTON1, SYS_BUTTON_MODE_EXTI);
+#endif /* USE_BSP_DRIVER || MX_BOARD_PSEUDODRIVER */
   }
 
   /* USER CODE BEGIN LoRaWAN_Init_Last */
@@ -285,6 +303,77 @@ void LoRaWAN_Init(void)
   /* USER CODE END LoRaWAN_Init_Last */
 }
 
+#if defined(USE_BSP_DRIVER)
+void BSP_PB_Callback(Button_TypeDef Button)
+{
+#warning: adapt stm32wlxx_it.c to call BSP_PB_IRQHandler if you want to use BSP
+  /* USER CODE BEGIN BSP_PB_Callback_1 */
+
+  /* USER CODE END BSP_PB_Callback_1 */
+  switch (Button)
+  {
+    case  BUTTON_SW1:
+      UTIL_SEQ_SetTask((1 << CFG_SEQ_Task_LoRaSendOnTxTimerOrButtonEvent), CFG_SEQ_Prio_0);
+      /* USER CODE BEGIN PB_Callback 1 */
+      /* USER CODE END PB_Callback 1 */
+      break;
+    case  BUTTON_SW2:
+      /* USER CODE BEGIN PB_Callback 2 */
+      /* USER CODE END PB_Callback 2 */
+      break;
+    case  BUTTON_SW3:
+      /* USER CODE BEGIN PB_Callback 3 */
+      /* USER CODE END PB_Callback 3 */
+      break;
+    default:
+      break;
+  }
+  /* USER CODE BEGIN BSP_PB_Callback_Last */
+
+  /* USER CODE END BSP_PB_Callback_Last */
+}
+
+#elif defined(MX_BOARD_PSEUDODRIVER)
+
+/* Note: Current MX does not support EXTI IP neither BSP. */
+/* In order to get a push button IRS by code automatically generated */
+/* this function is today the only available possibility. */
+/* Calling BSP_PB_Callback() from here it shortcuts the BSP. */
+/* If users wants to go through the BSP, it can remove BSP_PB_Callback() from here */
+/* and add a call to BSP_PB_IRQHandler() in the USER CODE SESSION of the */
+/* correspondent EXTIn_IRQHandler() in the stm32wlxx_it.c */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+  /* USER CODE BEGIN HAL_GPIO_EXTI_Callback_1 */
+
+  /* USER CODE END HAL_GPIO_EXTI_Callback_1 */
+//  switch (GPIO_Pin)
+//  {
+//    case  // SYS_BUTTON1_PIN:
+//      /* Note: when "EventType == TX_ON_TIMER" this GPIO is not initialised */
+//      UTIL_SEQ_SetTask((1 << CFG_SEQ_Task_LoRaSendOnTxTimerOrButtonEvent), CFG_SEQ_Prio_0);
+//      /* USER CODE BEGIN EXTI_Callback_Switch_B1 */
+//      /* USER CODE END EXTI_Callback_Switch_B1 */
+//      break;
+//    case  // SYS_BUTTON2_PIN:
+//      /* USER CODE BEGIN EXTI_Callback_Switch_B2 */
+//      /* USER CODE END EXTI_Callback_Switch_B2 */
+//      break;
+//    /* USER CODE BEGIN EXTI_Callback_Switch_case */
+//
+//    /* USER CODE END EXTI_Callback_Switch_case */
+//    default:
+//    /* USER CODE BEGIN EXTI_Callback_Switch_default */
+//    /* USER CODE END EXTI_Callback_Switch_default */
+//      break;
+//  }
+  /* USER CODE BEGIN HAL_GPIO_EXTI_Callback_Last */
+
+  /* USER CODE END HAL_GPIO_EXTI_Callback_Last */
+}
+#else
+#error user to provide its board code or to call his board driver functions
+#endif  /* USE_BSP_DRIVER || MX_BOARD_PSEUDODRIVER*/
 
 /* Private functions ---------------------------------------------------------*/
 /* USER CODE BEGIN PrFD */
@@ -294,10 +383,15 @@ void LoRaWAN_Init(void)
 static void OnRxData(LmHandlerAppData_t *appData, LmHandlerRxParams_t *params)
 {
   /* USER CODE BEGIN OnRxData_1 */
+
   /* USER CODE END OnRxData_1 */
   if ((appData != NULL) && (params != NULL))
   {
-
+#if defined(USE_BSP_DRIVER)
+    // BSP_LED_On(LED_BLUE) ;
+#elif defined(MX_BOARD_PSEUDODRIVER)
+    // SYS_LED_On(// SYS_LED_BLUE) ;
+#endif /* USE_BSP_DRIVER || MX_BOARD_PSEUDODRIVER */
     UTIL_TIMER_Start(&RxLedTimer);
 
     static const char *slotStrings[] = { "1", "2", "C", "C Multicast", "B Ping-Slot", "B Multicast Ping-Slot" };
@@ -340,10 +434,21 @@ static void OnRxData(LmHandlerAppData_t *appData, LmHandlerRxParams_t *params)
           if (AppLedStateOn == RESET)
           {
             APP_LOG(TS_OFF, VLEVEL_H,   "LED OFF\r\n");
+
+#if defined(USE_BSP_DRIVER)
+            // BSP_LED_Off(LED_RED) ;
+#elif defined(MX_BOARD_PSEUDODRIVER)
+            // SYS_LED_Off(// SYS_LED_RED) ;
+#endif /* USE_BSP_DRIVER || MX_BOARD_PSEUDODRIVER */
           }
           else
           {
             APP_LOG(TS_OFF, VLEVEL_H, "LED ON\r\n");
+#if defined(USE_BSP_DRIVER)
+            // BSP_LED_On(LED_RED) ;
+#elif defined(MX_BOARD_PSEUDODRIVER)
+            // SYS_LED_On(// SYS_LED_RED) ;
+#endif /* USE_BSP_DRIVER || MX_BOARD_PSEUDODRIVER */
           }
         }
         break;
@@ -365,95 +470,81 @@ static void OnRxData(LmHandlerAppData_t *appData, LmHandlerRxParams_t *params)
 
 static void SendTxData(void)
 {
+  uint16_t pressure = 0;
+  int16_t temperature = 0;
+  sensor_t sensor_data;
   UTIL_TIMER_Time_t nextTxIn = 0;
 
-	__IO uint16_t adc_vref = 0U;
-	__IO uint16_t adc_vref_mVolt = 0U;
-	__IO uint16_t adc_int2 = 0U;
-	__IO uint16_t adc_int2_mVolt = 0U;
-	__IO uint16_t adc_int3 = 0U;
-	__IO uint16_t adc_int3_mVolt = 0U;
-	__IO  int16_t Temperature_DegreeCelsius = 0U; /* Value of temperature calculated from ADC conversion data (unit: degree Celsius) */
-
-  // Start humidity measurement
-  uint32_t humidity1 = si7021_measure_humidity(&hi2c2);
-  if (humidity1 == SI7021_MEASURE_FAILED) {
-    // Error happened :(
-  }
-  humidity1=humidity1*100; // to be 67.32 6732
-  // As a side effect si7021 measures temperate together with humidity
-  // so you can just read it without additional measurement
-  int32_t tempC = si7021_read_previous_temperature(&hi2c2);
-  if (humidity1 == SI7021_MEASURE_FAILED) {
-    // Error happened :(
-  }
-  APP_LOG(TS_ON, VLEVEL_L, "Temp: %u RH: %u \r\n",((uint32_t)tempC),((uint32_t)humidity1));
-
-  // Drivers/STM32WLxx_HAL_Driver/Inc/stm32wlxx_hal_adc.h to get
-  adc_vref=ADC_ReadChannels(ADC_CHANNEL_VREFINT);
-  adc_vref_mVolt=__LL_ADC_CALC_VREFANALOG_VOLTAGE(adc_vref, LL_ADC_RESOLUTION_12B);
-  APP_LOG(TS_ON, VLEVEL_L, "adc_vref = %d\n\r", adc_vref);
-  APP_LOG(TS_ON, VLEVEL_L, "adc_vref_mVolt = %d\n\r", adc_vref_mVolt);
-  HAL_Delay(200);
-
-  adc_int2 = ADC_ReadChannels(ADC_CHANNEL_2);
-  adc_int2_mVolt= __LL_ADC_CALC_DATA_TO_VOLTAGE(adc_vref_mVolt,adc_int2, LL_ADC_RESOLUTION_12B);
-  APP_LOG(TS_ON, VLEVEL_L, "adc_int2 = %d\n\r", adc_int2);
-  APP_LOG(TS_ON, VLEVEL_L, "adc_int2_mVolt = %d\n\r", adc_int2_mVolt);
-  HAL_Delay(200);
-
-  adc_int3 = ADC_ReadChannels(ADC_CHANNEL_3);
-  adc_int3_mVolt= __LL_ADC_CALC_DATA_TO_VOLTAGE(adc_vref_mVolt,adc_int3, LL_ADC_RESOLUTION_12B);
-  APP_LOG(TS_ON, VLEVEL_L, "adc_int3 = %d\n\r", adc_int3);
-  APP_LOG(TS_ON, VLEVEL_L, "adc_int3_mVolt = %d\n\r", adc_int3_mVolt);
-
-
-//  Temperature_DegreeCelsius= __LL_ADC_CALC_TEMPERATURE(adc_vref,ADC_ReadChannels(ADC_CHANNEL_TEMPSENSOR), LL_ADC_RESOLUTION_12B);
-//  /* from int16 to q8.7*/
-//  Temperature_DegreeCelsius <<= 8;
-//  Temperature_DegreeCelsius=(Temperature_DegreeCelsius/100U);
-//  APP_LOG(TS_ON, VLEVEL_L, "Temperature = %d\n\r", Temperature_DegreeCelsius);
-
-  // building
-//  uint8_t channel = 0;
-  uint16_t i = 0;
-  AppData.Port = LORAWAN_USER_APP_PORT;
-  uint8_t LORAWAN_APP_DATA_BUFF_SIZE=64;
-  uint8_t app_data_buffer[LORAWAN_APP_DATA_BUFF_SIZE];			  //< Lora user application data buffer.
-  memset(app_data_buffer, 0, LORAWAN_APP_DATA_BUFF_SIZE);
-  app_data_buffer[i++] = 0x01;
-  app_data_buffer[i++] = (uint8_t)(tempC >> 8);//1
-  app_data_buffer[i++] = (uint8_t)tempC;//2
-  app_data_buffer[i++] = (uint8_t)(humidity1 >> 8);//3
-  app_data_buffer[i++] = (uint8_t)humidity1;//4
-  app_data_buffer[i++] = (uint8_t)((adc_int2_mVolt & 0x00FF0000) >> 16);//5  can send  up to 65535
-  app_data_buffer[i++] = (uint8_t)((adc_int2_mVolt & 0x0000FF00) >> 8);//6
-  app_data_buffer[i++] = (uint8_t)(adc_int2_mVolt & 0x000000FF);//7
-  app_data_buffer[i++] = (uint8_t)((adc_int3_mVolt & 0x00FF0000) >> 16);//8  can send  up to 65535
-  app_data_buffer[i++] = (uint8_t)((adc_int3_mVolt & 0x0000FF00) >> 8);//9
-  app_data_buffer[i++] = (uint8_t)(adc_int3_mVolt & 0x000000FF);//10
-
-
-
-//  CayenneLppReset();
-//  CayenneLppAddTemperature(channel++, tempC);
-//  CayenneLppAddRelativeHumidity(channel++, humidity1);
-//  CayenneLppAddTemperature(channel++, Temperature_DegreeCelsius);
-//  CayenneLppAddTemperature(channel++, 3200); //correct
-//  CayenneLppAddTemperature(channel++, 3500); // problem
-//
-//  CayenneLppAddAnalogInput(channel++, 32);
-//  CayenneLppAddAnalogInput(channel++, 1023);
-//  CayenneLppAddAnalogInput(channel++,1050 );
-  UTIL_MEM_cpy_8(AppData.Buffer, app_data_buffer, i);
-//  CayenneLppCopy(AppData.Buffer);
-  AppData.BufferSize = i;
-
+#ifdef CAYENNE_LPP
+  uint8_t channel = 0;
+#else
+  uint16_t humidity = 0;
+  uint32_t i = 0;
+  int32_t latitude = 0;
+  int32_t longitude = 0;
+  uint16_t altitudeGps = 0;
+#endif /* CAYENNE_LPP */
   /* USER CODE BEGIN SendTxData_1 */
 
   /* USER CODE END SendTxData_1 */
 
+  EnvSensors_Read(&sensor_data);
+  temperature = (SYS_GetTemperatureLevel() >> 8);
+  pressure    = (uint16_t)(sensor_data.pressure * 100 / 10);      /* in hPa / 10 */
 
+  AppData.Port = LORAWAN_USER_APP_PORT;
+
+#ifdef CAYENNE_LPP
+  CayenneLppReset();
+  CayenneLppAddBarometricPressure(channel++, pressure);
+  CayenneLppAddTemperature(channel++, temperature);
+  CayenneLppAddRelativeHumidity(channel++, (uint16_t)(sensor_data.humidity));
+
+  if ((LmHandlerParams.ActiveRegion != LORAMAC_REGION_US915) && (LmHandlerParams.ActiveRegion != LORAMAC_REGION_AU915)
+      && (LmHandlerParams.ActiveRegion != LORAMAC_REGION_AS923))
+  {
+    CayenneLppAddDigitalInput(channel++, GetBatteryLevel());
+    CayenneLppAddDigitalOutput(channel++, AppLedStateOn);
+  }
+
+  CayenneLppCopy(AppData.Buffer);
+  AppData.BufferSize = CayenneLppGetSize();
+#else  /* not CAYENNE_LPP */
+  humidity    = (uint16_t)(sensor_data.humidity * 10);            /* in %*10     */
+
+  AppData.Buffer[i++] = AppLedStateOn;
+  AppData.Buffer[i++] = (uint8_t)((pressure >> 8) & 0xFF);
+  AppData.Buffer[i++] = (uint8_t)(pressure & 0xFF);
+  AppData.Buffer[i++] = (uint8_t)(temperature & 0xFF);
+  AppData.Buffer[i++] = (uint8_t)((humidity >> 8) & 0xFF);
+  AppData.Buffer[i++] = (uint8_t)(humidity & 0xFF);
+
+  if ((LmHandlerParams.ActiveRegion == LORAMAC_REGION_US915) || (LmHandlerParams.ActiveRegion == LORAMAC_REGION_AU915)
+      || (LmHandlerParams.ActiveRegion == LORAMAC_REGION_AS923))
+  {
+    AppData.Buffer[i++] = 0;
+    AppData.Buffer[i++] = 0;
+    AppData.Buffer[i++] = 0;
+    AppData.Buffer[i++] = 0;
+  }
+  else
+  {
+    latitude = sensor_data.latitude;
+    longitude = sensor_data.longitude;
+
+    AppData.Buffer[i++] = GetBatteryLevel();        /* 1 (very low) to 254 (fully charged) */
+    AppData.Buffer[i++] = (uint8_t)((latitude >> 16) & 0xFF);
+    AppData.Buffer[i++] = (uint8_t)((latitude >> 8) & 0xFF);
+    AppData.Buffer[i++] = (uint8_t)(latitude & 0xFF);
+    AppData.Buffer[i++] = (uint8_t)((longitude >> 16) & 0xFF);
+    AppData.Buffer[i++] = (uint8_t)((longitude >> 8) & 0xFF);
+    AppData.Buffer[i++] = (uint8_t)(longitude & 0xFF);
+    AppData.Buffer[i++] = (uint8_t)((altitudeGps >> 8) & 0xFF);
+    AppData.Buffer[i++] = (uint8_t)(altitudeGps & 0xFF);
+  }
+
+  AppData.BufferSize = i;
+#endif /* CAYENNE_LPP */
 
   if (LORAMAC_HANDLER_SUCCESS == LmHandlerSend(&AppData, LORAWAN_DEFAULT_CONFIRMED_MSG_STATE, &nextTxIn, false))
   {
@@ -487,6 +578,13 @@ static void OnTxTimerLedEvent(void *context)
   /* USER CODE BEGIN OnTxTimerLedEvent_1 */
 
   /* USER CODE END OnTxTimerLedEvent_1 */
+#if defined(USE_BSP_DRIVER)
+  // BSP_LED_Off(LED_GREEN) ;
+#else
+  // SYS_LED_Off(// SYS_LED_GREEN) ;
+#endif /* USE_BSP_DRIVER || MX_BOARD_PSEUDODRIVER */
+  /* USER CODE BEGIN OnTxTimerLedEvent_2 */
+
   /* USER CODE END OnTxTimerLedEvent_2 */
 }
 
@@ -495,7 +593,11 @@ static void OnRxTimerLedEvent(void *context)
   /* USER CODE BEGIN OnRxTimerLedEvent_1 */
 
   /* USER CODE END OnRxTimerLedEvent_1 */
-
+#if defined(USE_BSP_DRIVER)
+  // BSP_LED_Off(LED_BLUE) ;
+#else
+  // SYS_LED_Off(// SYS_LED_BLUE) ;
+#endif /* USE_BSP_DRIVER || MX_BOARD_PSEUDODRIVER */
   /* USER CODE BEGIN OnRxTimerLedEvent_2 */
 
   /* USER CODE END OnRxTimerLedEvent_2 */
@@ -506,7 +608,11 @@ static void OnJoinTimerLedEvent(void *context)
   /* USER CODE BEGIN OnJoinTimerLedEvent_1 */
 
   /* USER CODE END OnJoinTimerLedEvent_1 */
-
+#if defined(USE_BSP_DRIVER)
+  // BSP_LED_Toggle(LED_RED) ;
+#else
+  // SYS_LED_Toggle(// SYS_LED_RED) ;
+#endif /* USE_BSP_DRIVER || MX_BOARD_PSEUDODRIVER */
   /* USER CODE BEGIN OnJoinTimerLedEvent_2 */
 
   /* USER CODE END OnJoinTimerLedEvent_2 */
@@ -515,10 +621,15 @@ static void OnJoinTimerLedEvent(void *context)
 static void OnTxData(LmHandlerTxParams_t *params)
 {
   /* USER CODE BEGIN OnTxData_1 */
+
   /* USER CODE END OnTxData_1 */
   if ((params != NULL) && (params->IsMcpsConfirm != 0))
   {
-
+#if defined(USE_BSP_DRIVER)
+    // BSP_LED_On(LED_GREEN) ;
+#elif defined(MX_BOARD_PSEUDODRIVER)
+    // SYS_LED_On(// SYS_LED_GREEN) ;
+#endif /* USE_BSP_DRIVER || MX_BOARD_PSEUDODRIVER */
     UTIL_TIMER_Start(&TxLedTimer);
 
     APP_LOG(TS_OFF, VLEVEL_M, "\r\n###### ========== MCPS-Confirm =============\r\n");
@@ -544,12 +655,19 @@ static void OnTxData(LmHandlerTxParams_t *params)
 static void OnJoinRequest(LmHandlerJoinParams_t *joinParams)
 {
   /* USER CODE BEGIN OnJoinRequest_1 */
+
   /* USER CODE END OnJoinRequest_1 */
   if (joinParams != NULL)
   {
     if (joinParams->Status == LORAMAC_HANDLER_SUCCESS)
     {
       UTIL_TIMER_Stop(&JoinLedTimer);
+
+#if defined(USE_BSP_DRIVER)
+      // BSP_LED_Off(LED_RED) ;
+#elif defined(MX_BOARD_PSEUDODRIVER)
+      // SYS_LED_Off(// SYS_LED_RED) ;
+#endif /* USE_BSP_DRIVER || MX_BOARD_PSEUDODRIVER */
 
       APP_LOG(TS_OFF, VLEVEL_M, "\r\n###### = JOINED = ");
       if (joinParams->Mode == ACTIVATION_TYPE_ABP)
@@ -578,7 +696,6 @@ static void OnMacProcessNotify(void)
 
   /* USER CODE END OnMacProcessNotify_1 */
   UTIL_SEQ_SetTask((1 << CFG_SEQ_Task_LmHandlerProcess), CFG_SEQ_Prio_0);
-
   /* USER CODE BEGIN OnMacProcessNotify_2 */
 
   /* USER CODE END OnMacProcessNotify_2 */

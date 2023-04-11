@@ -52,6 +52,10 @@ extern "C" {
 
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
+void   MX_RTC_Init(void);
+void   MX_SUBGHZ_Init(void);
+void   MX_USART2_UART_Init(void);
+void   MX_ADC_Init(void);
 
 /* USER CODE BEGIN EFP */
 uint32_t ADC_ReadChannels(uint32_t);
@@ -66,9 +70,7 @@ uint32_t ADC_ReadChannels(uint32_t);
 #define USARTx_TX_GPIO_Port GPIOA
 #define USARTx_RX_Pin GPIO_PIN_3
 #define USARTx_RX_GPIO_Port GPIOA
-void   MX_ADC_Init(void);
-void   MX_RTC_Init(void);
-void   MX_USART2_UART_Init(void);
+
 /* USER CODE BEGIN Private defines */
 #define USARTx_RX_Pin GPIO_PIN_3
 #define USARTx_RX_GPIO_Port GPIOA
@@ -82,5 +84,3 @@ void   MX_USART2_UART_Init(void);
 #endif
 
 #endif /* __MAIN_H */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

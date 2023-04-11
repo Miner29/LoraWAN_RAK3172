@@ -40,7 +40,7 @@ extern "C" {
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
-//#define MW_LOG_ENABLED
+#define MW_LOG_ENABLED
 
 /* USER CODE BEGIN EC */
 
@@ -71,5 +71,3 @@ extern "C" {
 #endif
 
 #endif /*__MW_LOG_CONF_H__ */
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
